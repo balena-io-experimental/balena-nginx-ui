@@ -1,0 +1,12 @@
+version: '2.1'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.template
+    restart: always
+    ports:
+      - "80:80"
+    labels:
+      io.balena.features.supervisor-api: '1'

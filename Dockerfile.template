@@ -1,0 +1,31 @@
+## Build interface
+FROM node:14.17.0-alpine3.13 AS node-build-step
+
+WORKDIR /build-context
+
+# Install node modules with long network timeout to resolve slow disk I/O on local builds
+COPY balena-device-ui/package.json .
+COPY balena-device-ui/yarn.lock .
+
+# The network timeout prevents build timeouts on devices with slow SD cards when developing
+RUN yarn install --network-timeout 600000 --frozen-lockfile
+
+COPY balena-device-ui/ .
+
+RUN yarn run lint
+
+RUN yarn build
+
+
+## Compile NGINX container
+FROM nginx:1.21.3-alpine
+
+COPY --from=node-build-step /build-context/dist/spa /usr/share/nginx/html
+
+COPY config/default.conf /tmp/default.template
+
+# Replaces the env variables in the NGINX config file with the Supervisor keys then
+# starts NGINX.
+CMD /bin/sh -c "envsubst '\$BALENA_SUPERVISOR_ADDRESS \$BALENA_SUPERVISOR_API_KEY' < \
+                /tmp/default.template > /etc/nginx/conf.d/default.conf && \
+                nginx -g 'daemon off;'"
